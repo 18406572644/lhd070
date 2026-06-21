@@ -107,13 +107,6 @@ onMounted(async () => {
   await productsStore.fetchProducts()
   await fetchBrands()
 })
-
-watch(
-  () => productsStore.filters.page,
-  () => {
-    productsStore.fetchProducts()
-  },
-)
 </script>
 
 <template>

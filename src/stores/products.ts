@@ -106,7 +106,7 @@ export const useProductsStore = defineStore('products', () => {
 
       const data = await get<{ items: Record<string, unknown>[]; pagination: Pagination }>(
         '/products',
-        { params },
+        params,
       )
       products.value = data.items.map(formatProduct)
       total.value = data.pagination.total
@@ -128,18 +128,22 @@ export const useProductsStore = defineStore('products', () => {
   async function fetchByCategory(categorySlug: string, limit = 100): Promise<Product[]> {
     const data = await get<{ items: Record<string, unknown>[]; pagination: Pagination }>(
       '/products',
-      { params: { category: categorySlug, limit } },
+      { category: categorySlug, limit },
     )
     return data.items.map(formatProduct)
   }
 
-  function setFilters(partial: Partial<Filters>) {
+  async function setFilters(partial: Partial<Filters>) {
     Object.assign(filters.value, partial)
-    filters.value.page = 1
+    if (!('page' in partial)) {
+      filters.value.page = 1
+    }
+    await fetchProducts()
   }
 
-  function resetFilters() {
+  async function resetFilters() {
     Object.assign(filters.value, { ...defaultFilters })
+    await fetchProducts()
   }
 
   return {

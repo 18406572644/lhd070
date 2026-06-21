@@ -70,6 +70,7 @@ async function handleSubmit() {
       },
     })
     ElMessage.success('订单提交成功')
+    await cartStore.fetchCart()
     router.push(`/orders/${data.id}`)
   } catch {
     //

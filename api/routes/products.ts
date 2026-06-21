@@ -21,8 +21,12 @@ router.get('/', (req: Request, res: Response): void => {
       params.push(category)
     }
     if (brand) {
-      sql += ' AND p.brand = ?'
-      params.push(brand)
+      const brandList = String(brand).split(',').filter((b) => b.trim())
+      if (brandList.length > 0) {
+        const placeholders = brandList.map(() => '?').join(', ')
+        sql += ` AND p.brand IN (${placeholders})`
+        brandList.forEach((b) => params.push(b.trim()))
+      }
     }
     if (minPrice) {
       sql += ' AND p.price >= ?'
