@@ -23,3 +23,17 @@ dist-ssr
 *.sln
 *.sw?
 .vite
+
+# Docker
+docker-compose.yml
+docker-compose.override.yml
+Dockerfile
+Dockerfile.*
+.dockerignore
+nginx.conf
+
+# Database
+data/
+api/*.db
+api/*.db-shm
+api/*.db-wal

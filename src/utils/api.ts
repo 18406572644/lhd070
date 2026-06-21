@@ -74,9 +74,9 @@ export function put<T>(url: string, data?: unknown): Promise<T> {
     })
 }
 
-export function del<T>(url: string): Promise<T> {
+export function del<T>(url: string, config?: { data?: unknown }): Promise<T> {
   return api
-    .delete<ApiResponse<T>>(url)
+    .delete<ApiResponse<T>>(url, config)
     .then((res) => {
       if (res.data.success) {
         return res.data.data

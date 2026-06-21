@@ -36,6 +36,7 @@ interface RawCartItem {
 export const useCartStore = defineStore('cart', () => {
   const items = ref<CartItem[]>([])
   const loading = ref(false)
+  const selectedIds = ref<Set<number | string>>(new Set())
 
   const totalCount = computed(() => items.value.reduce((sum, item) => sum + item.quantity, 0))
   const totalAmount = computed(() =>
@@ -43,6 +44,13 @@ export const useCartStore = defineStore('cart', () => {
   )
   const kitItems = computed(() => items.value.filter((item) => item.type === 'kit'))
   const productItems = computed(() => items.value.filter((item) => item.type === 'product'))
+
+  const selectedItems = computed(() => items.value.filter((item) => selectedIds.value.has(item.id)))
+  const selectedCount = computed(() => selectedItems.value.reduce((sum, item) => sum + item.quantity, 0))
+  const selectedAmount = computed(() =>
+    selectedItems.value.reduce((sum, item) => sum + item.product.price * item.quantity, 0),
+  )
+  const isAllSelected = computed(() => items.value.length > 0 && items.value.every((item) => selectedIds.value.has(item.id)))
 
   function parseImages(raw: string | string[] | undefined): string[] {
     if (!raw) return []
@@ -74,11 +82,34 @@ export const useCartStore = defineStore('cart', () => {
     }
   }
 
+  function toggleSelect(id: number | string) {
+    if (selectedIds.value.has(id)) {
+      selectedIds.value.delete(id)
+    } else {
+      selectedIds.value.add(id)
+    }
+    selectedIds.value = new Set(selectedIds.value)
+  }
+
+  function toggleSelectAll() {
+    if (isAllSelected.value) {
+      selectedIds.value = new Set()
+    } else {
+      selectedIds.value = new Set(items.value.map((item) => item.id))
+    }
+  }
+
+  function clearSelection() {
+    selectedIds.value = new Set()
+  }
+
   async function fetchCart() {
     loading.value = true
     try {
       const data = await get<{ items: RawCartItem[] }>('/cart')
       items.value = data.items.map(mapItem)
+      const validIds = new Set(items.value.map((item) => item.id))
+      selectedIds.value = new Set([...selectedIds.value].filter((id) => validIds.has(id)))
     } finally {
       loading.value = false
     }
@@ -108,6 +139,19 @@ export const useCartStore = defineStore('cart', () => {
     loading.value = true
     try {
       await del(`/cart/items/${id}`)
+      selectedIds.value.delete(id)
+      await fetchCart()
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function removeSelected() {
+    if (selectedIds.value.size === 0) return
+    loading.value = true
+    try {
+      await del('/cart/items/batch', { data: { ids: [...selectedIds.value] } })
+      selectedIds.value = new Set()
       await fetchCart()
     } finally {
       loading.value = false
@@ -118,6 +162,7 @@ export const useCartStore = defineStore('cart', () => {
     loading.value = true
     try {
       await del('/cart')
+      selectedIds.value = new Set()
       await fetchCart()
     } finally {
       loading.value = false
@@ -127,6 +172,11 @@ export const useCartStore = defineStore('cart', () => {
   return {
     items,
     loading,
+    selectedIds,
+    selectedItems,
+    selectedCount,
+    selectedAmount,
+    isAllSelected,
     totalCount,
     totalAmount,
     kitItems,
@@ -135,6 +185,10 @@ export const useCartStore = defineStore('cart', () => {
     addItem,
     updateQuantity,
     removeItem,
+    removeSelected,
+    toggleSelect,
+    toggleSelectAll,
+    clearSelection,
     clearCart,
   }
 })

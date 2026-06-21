@@ -102,6 +102,31 @@ router.delete('/items/:id', authMiddleware, (req: Request, res: Response): void 
   }
 })
 
+router.delete('/items/batch', authMiddleware, (req: Request, res: Response): void => {
+  try {
+    const { ids } = req.body
+
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      res.status(400).json({ success: false, error: '请选择要删除的商品' })
+      return
+    }
+
+    const placeholders = ids.map(() => '?').join(',')
+    const result = db
+      .prepare(`DELETE FROM cart_items WHERE userId = ? AND id IN (${placeholders})`)
+      .run(req.user!.id, ...ids)
+
+    if (result.changes === 0) {
+      res.status(404).json({ success: false, error: '购物车项不存在' })
+      return
+    }
+
+    res.json({ success: true, data: { deletedCount: result.changes } })
+  } catch (error) {
+    res.status(500).json({ success: false, error: '批量删除失败' })
+  }
+})
+
 router.delete('/', authMiddleware, (req: Request, res: Response): void => {
   try {
     db.prepare('DELETE FROM cart_items WHERE userId = ?').run(req.user!.id)

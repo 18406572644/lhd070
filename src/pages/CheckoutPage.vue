@@ -27,8 +27,10 @@ const rules: FormRules = {
   address: [{ required: true, message: '请输入收货地址', trigger: 'blur' }],
 }
 
+const displayItems = computed(() => cartStore.selectedItems.length > 0 ? cartStore.selectedItems : cartStore.items)
+
 const orderItems = computed(() =>
-  cartStore.items.map((item) => ({
+  displayItems.value.map((item) => ({
     id: item.id,
     productId: item.productId,
     name: item.product.name,
@@ -38,20 +40,25 @@ const orderItems = computed(() =>
   })),
 )
 
+const displayAmount = computed(() =>
+  displayItems.value.reduce((sum, item) => sum + item.product.price * item.quantity, 0),
+)
+
 async function handleSubmit() {
   if (!formRef.value) return
   const valid = await formRef.value.validate().catch(() => false)
   if (!valid) return
 
-  if (cartStore.items.length === 0) {
-    ElMessage.warning('购物车为空')
+  const submitItems = cartStore.selectedItems.length > 0 ? cartStore.selectedItems : cartStore.items
+  if (submitItems.length === 0) {
+    ElMessage.warning('没有可结算的商品')
     return
   }
 
   submitting.value = true
   try {
     const data = await post<{ id: number | string; orderNo: string; totalAmount: number }>('/orders', {
-      items: cartStore.items.map((item) => ({
+      items: submitItems.map((item) => ({
         productId: item.productId,
         quantity: item.quantity,
         type: item.type,
@@ -110,9 +117,9 @@ onMounted(() => {
       <div class="summary-section">
         <h3 class="section-title">订单摘要</h3>
         <div class="summary-items">
-          <div v-if="cartStore.items.length === 0" class="empty-hint">购物车为空</div>
+          <div v-if="displayItems.length === 0" class="empty-hint">没有可结算的商品</div>
           <div
-            v-for="item in cartStore.items"
+            v-for="item in displayItems"
             :key="item.id"
             class="summary-item"
           >
@@ -131,11 +138,11 @@ onMounted(() => {
         </div>
         <div class="summary-total">
           <span class="total-label">合计</span>
-          <span class="total-amount">¥{{ cartStore.totalAmount.toFixed(2) }}</span>
+          <span class="total-amount">¥{{ displayAmount.toFixed(2) }}</span>
         </div>
         <button
           class="cyber-btn-primary submit-btn"
-          :disabled="submitting || cartStore.items.length === 0"
+          :disabled="submitting || displayItems.length === 0"
           @click="handleSubmit"
         >
           {{ submitting ? '提交中...' : '提交订单' }}

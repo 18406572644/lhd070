@@ -38,6 +38,32 @@ async function handleClear() {
   }
 }
 
+async function handleRemoveSelected() {
+  if (cartStore.selectedIds.size === 0) {
+    ElMessage.warning('请先选择要删除的商品')
+    return
+  }
+  try {
+    await ElMessageBox.confirm(`确认删除已选的 ${cartStore.selectedCount} 件商品吗？`, '提示', {
+      confirmButtonText: '确认',
+      cancelButtonText: '取消',
+      type: 'warning',
+    })
+    await cartStore.removeSelected()
+    ElMessage.success('已删除选中商品')
+  } catch {
+    //
+  }
+}
+
+function handleCheckout() {
+  if (cartStore.selectedIds.size === 0) {
+    ElMessage.warning('请先选择要结算的商品')
+    return
+  }
+  router.push('/checkout')
+}
+
 onMounted(() => {
   cartStore.fetchCart()
 })
@@ -66,6 +92,9 @@ onMounted(() => {
     <template v-else>
       <div class="cart-table">
         <div class="table-header">
+          <span class="col-select">
+            <el-checkbox :model-value="cartStore.isAllSelected" @change="cartStore.toggleSelectAll" />
+          </span>
           <span class="col-product">商品</span>
           <span class="col-price">单价</span>
           <span class="col-qty">数量</span>
@@ -76,7 +105,11 @@ onMounted(() => {
           v-for="item in cartStore.items"
           :key="item.id"
           class="table-row"
+          :class="{ 'row-selected': cartStore.selectedIds.has(item.id) }"
         >
+          <div class="col-select">
+            <el-checkbox :model-value="cartStore.selectedIds.has(item.id)" @change="cartStore.toggleSelect(item.id)" />
+          </div>
           <div class="col-product">
             <div class="item-image image-placeholder">
               <svg viewBox="0 0 24 24" fill="none" stroke="var(--cc-cyan)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="24" height="24">
@@ -112,12 +145,16 @@ onMounted(() => {
       </div>
 
       <div class="cart-footer">
-        <button class="cyber-btn" @click="handleClear">清空购物车</button>
-        <div class="cart-total">
-          <span class="total-label">合计：</span>
-          <span class="total-amount">¥{{ cartStore.totalAmount }}</span>
+        <div class="footer-left">
+          <button class="cyber-btn" @click="handleClear">清空购物车</button>
+          <button class="cyber-btn" @click="handleRemoveSelected" :disabled="cartStore.selectedIds.size === 0">删除已选</button>
         </div>
-        <router-link to="/checkout" class="cyber-btn-primary checkout-btn">去结算</router-link>
+        <div class="cart-total">
+          <span class="selected-info">已选 <em class="selected-count">{{ cartStore.selectedCount }}</em> 件商品</span>
+          <span class="total-label">合计：</span>
+          <span class="total-amount">¥{{ cartStore.selectedAmount.toFixed(2) }}</span>
+        </div>
+        <button class="cyber-btn-primary checkout-btn" @click="handleCheckout" :disabled="cartStore.selectedIds.size === 0">去结算</button>
       </div>
     </template>
   </div>
@@ -166,6 +203,17 @@ onMounted(() => {
 
 .table-row:hover {
   background: rgba(125, 253, 254, 0.02);
+}
+
+.row-selected {
+  background: rgba(125, 253, 254, 0.08);
+}
+
+.col-select {
+  flex: 0 0 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .col-product {
@@ -265,13 +313,32 @@ onMounted(() => {
   border-radius: 0.5rem;
 }
 
+.footer-left {
+  display: flex;
+  gap: 12px;
+}
+
 .cart-total {
   flex: 1;
   text-align: right;
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 8px;
+  gap: 12px;
+}
+
+.selected-info {
+  font-size: 0.9rem;
+  color: var(--cc-text-dim);
+  margin-right: 12px;
+}
+
+.selected-count {
+  font-style: normal;
+  color: var(--cc-cyan);
+  font-weight: 600;
+  font-size: 1.1rem;
+  font-family: 'Rajdhani', sans-serif;
 }
 
 .total-label {
@@ -290,6 +357,16 @@ onMounted(() => {
 .checkout-btn {
   text-decoration: none;
   padding: 0.6rem 2rem;
+}
+
+.checkout-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.cyber-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .empty-state {
@@ -327,8 +404,11 @@ onMounted(() => {
     flex-wrap: wrap;
     gap: 8px;
   }
+  .col-select {
+    flex: 0 0 30px;
+  }
   .col-product {
-    flex: 1 1 100%;
+    flex: 1 1 calc(100% - 38px);
   }
   .col-price,
   .col-qty,
@@ -337,6 +417,22 @@ onMounted(() => {
     flex: 1;
     justify-content: center;
     text-align: center;
+  }
+  .cart-footer {
+    flex-wrap: wrap;
+  }
+  .footer-left {
+    width: 100%;
+    justify-content: center;
+  }
+  .cart-total {
+    flex: 1 1 100%;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .checkout-btn {
+    width: 100%;
+    justify-content: center;
   }
 }
 </style>
