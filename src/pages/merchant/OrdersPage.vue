@@ -276,18 +276,28 @@ onUnmounted(() => {
       <el-table-column type="expand">
         <template #default="{ row }">
           <div class="expand-content">
-            <el-table :data="row.items" size="small" border>
+            <el-table
+              v-if="row.items && row.items.length"
+              :data="row.items"
+              size="small"
+              border
+            >
               <el-table-column label="商品" prop="productName" />
               <el-table-column label="单价" width="100" align="right">
-                <template #default="{ item }">¥{{ item.price.toFixed(2) }}</template>
+                <template #default="{ row: item }">
+                  ¥{{ (Number(item.price) || 0).toFixed(2) }}
+                </template>
               </el-table-column>
               <el-table-column label="数量" prop="quantity" width="80" align="center" />
               <el-table-column label="小计" width="100" align="right">
-                <template #default="{ item }">
-                  <span class="cyan">¥{{ (item.price * item.quantity).toFixed(2) }}</span>
+                <template #default="{ row: item }">
+                  <span class="cyan">
+                    ¥{{ ((Number(item.price) || 0) * (Number(item.quantity) || 0)).toFixed(2) }}
+                  </span>
                 </template>
               </el-table-column>
             </el-table>
+            <el-empty v-else description="暂无商品信息" :image-size="60" />
           </div>
         </template>
       </el-table-column>

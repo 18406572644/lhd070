@@ -156,20 +156,27 @@ onMounted(fetchOrder)
 
     <div class="items-section cyber-card">
       <h3 class="sub-title">订单商品</h3>
-      <el-table :data="order.items" stripe>
+      <el-table
+        v-if="order.items && order.items.length"
+        :data="order.items"
+        stripe
+      >
         <el-table-column label="商品名称" prop="productName" />
         <el-table-column label="单价" width="120" align="right">
           <template #default="{ row }">
-            <span class="cyan">¥{{ row.price.toFixed(2) }}</span>
+            <span class="cyan">¥{{ (Number(row.price) || 0).toFixed(2) }}</span>
           </template>
         </el-table-column>
         <el-table-column label="数量" prop="quantity" width="80" align="center" />
         <el-table-column label="小计" width="120" align="right">
           <template #default="{ row }">
-            <span class="amount">¥{{ (row.price * row.quantity).toFixed(2) }}</span>
+            <span class="amount">
+              ¥{{ ((Number(row.price) || 0) * (Number(row.quantity) || 0)).toFixed(2) }}
+            </span>
           </template>
         </el-table-column>
       </el-table>
+      <el-empty v-else description="暂无商品信息" :image-size="80" />
     </div>
 
     <div v-if="order.progress && order.progress.length" class="progress-section cyber-card">
