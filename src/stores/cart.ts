@@ -64,14 +64,19 @@ export const useCartStore = defineStore('cart', () => {
     return raw
   }
 
+  function toNumericId(id: number | string): number {
+    const num = Number(id)
+    return Number.isNaN(num) ? 0 : num
+  }
+
   function mapItem(raw: RawCartItem): CartItem {
     return {
-      id: raw.id,
-      productId: raw.productId,
+      id: toNumericId(raw.id),
+      productId: toNumericId(raw.productId),
       quantity: raw.quantity,
       type: raw.type,
       product: {
-        id: raw.productId,
+        id: toNumericId(raw.productId),
         name: raw.name,
         price: raw.price,
         images: parseImages(raw.images),
@@ -83,10 +88,11 @@ export const useCartStore = defineStore('cart', () => {
   }
 
   function toggleSelect(id: number | string) {
-    if (selectedIds.value.has(id)) {
-      selectedIds.value.delete(id)
+    const numericId = toNumericId(id)
+    if (selectedIds.value.has(numericId)) {
+      selectedIds.value.delete(numericId)
     } else {
-      selectedIds.value.add(id)
+      selectedIds.value.add(numericId)
     }
     selectedIds.value = new Set(selectedIds.value)
   }
@@ -95,7 +101,7 @@ export const useCartStore = defineStore('cart', () => {
     if (isAllSelected.value) {
       selectedIds.value = new Set()
     } else {
-      selectedIds.value = new Set(items.value.map((item) => item.id))
+      selectedIds.value = new Set(items.value.map((item) => toNumericId(item.id)))
     }
   }
 
@@ -108,8 +114,12 @@ export const useCartStore = defineStore('cart', () => {
     try {
       const data = await get<{ items: RawCartItem[] }>('/cart')
       items.value = data.items.map(mapItem)
-      const validIds = new Set(items.value.map((item) => item.id))
-      selectedIds.value = new Set([...selectedIds.value].filter((id) => validIds.has(id)))
+      const validIds = new Set(items.value.map((item) => toNumericId(item.id)))
+      selectedIds.value = new Set(
+        [...selectedIds.value]
+          .map((id) => toNumericId(id))
+          .filter((id) => validIds.has(id)),
+      )
     } finally {
       loading.value = false
     }
@@ -128,7 +138,8 @@ export const useCartStore = defineStore('cart', () => {
   async function updateQuantity(id: number | string, quantity: number) {
     loading.value = true
     try {
-      await put(`/cart/items/${id}`, { quantity })
+      const numericId = toNumericId(id)
+      await put(`/cart/items/${numericId}`, { quantity })
       await fetchCart()
     } finally {
       loading.value = false
@@ -138,8 +149,9 @@ export const useCartStore = defineStore('cart', () => {
   async function removeItem(id: number | string) {
     loading.value = true
     try {
-      await del(`/cart/items/${id}`)
-      selectedIds.value.delete(id)
+      const numericId = toNumericId(id)
+      await del(`/cart/items/${numericId}`)
+      selectedIds.value.delete(numericId)
       await fetchCart()
     } finally {
       loading.value = false
@@ -150,7 +162,8 @@ export const useCartStore = defineStore('cart', () => {
     if (selectedIds.value.size === 0) return
     loading.value = true
     try {
-      await del('/cart/items/batch', { data: { ids: [...selectedIds.value] } })
+      const numericIds = [...selectedIds.value].map((id) => Number(id))
+      await post('/cart/items/batch-delete', { ids: numericIds })
       selectedIds.value = new Set()
       await fetchCart()
     } finally {

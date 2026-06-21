@@ -102,7 +102,7 @@ router.delete('/items/:id', authMiddleware, (req: Request, res: Response): void 
   }
 })
 
-router.delete('/items/batch', authMiddleware, (req: Request, res: Response): void => {
+router.post('/items/batch-delete', authMiddleware, (req: Request, res: Response): void => {
   try {
     const { ids } = req.body
 
@@ -111,10 +111,17 @@ router.delete('/items/batch', authMiddleware, (req: Request, res: Response): voi
       return
     }
 
-    const placeholders = ids.map(() => '?').join(',')
+    const numericIds = ids.map((id) => Number(id)).filter((id) => !Number.isNaN(id))
+
+    if (numericIds.length === 0) {
+      res.status(400).json({ success: false, error: '无效的商品ID' })
+      return
+    }
+
+    const placeholders = numericIds.map(() => '?').join(',')
     const result = db
       .prepare(`DELETE FROM cart_items WHERE userId = ? AND id IN (${placeholders})`)
-      .run(req.user!.id, ...ids)
+      .run(req.user!.id, ...numericIds)
 
     if (result.changes === 0) {
       res.status(404).json({ success: false, error: '购物车项不存在' })
