@@ -4,6 +4,8 @@ import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useCartStore } from '@/stores/cart'
 import { useProductsStore, type Product } from '@/stores/products'
+import { useCompareStore } from '@/stores/compare'
+import CompareBar from '@/components/CompareBar.vue'
 import { ElMessage } from 'element-plus'
 
 const router = useRouter()
@@ -11,6 +13,7 @@ const route = useRoute()
 const auth = useAuthStore()
 const cart = useCartStore()
 const productsStore = useProductsStore()
+const compareStore = useCompareStore()
 
 const isLoggedIn = computed(() => auth.isLoggedIn)
 const userRole = computed(() => auth.user?.role)
@@ -130,6 +133,7 @@ const handleCommand = (command: string) => {
 }
 
 const isHomeActive = computed(() => route.path === '/')
+const hasCompareBar = computed(() => compareStore.count > 0)
 </script>
 
 <template>
@@ -251,13 +255,15 @@ const isHomeActive = computed(() => route.path === '/')
       </div>
     </header>
 
-    <main class="main-content">
+    <main class="main-content" :class="{ 'has-compare-bar': hasCompareBar }">
       <router-view v-slot="{ Component }">
         <transition name="fade" mode="out-in">
           <component :is="Component" />
         </transition>
       </router-view>
     </main>
+
+    <CompareBar />
 
     <footer class="footer">
       <div class="footer-inner">
@@ -607,6 +613,10 @@ const isHomeActive = computed(() => route.path === '/')
   width: 100%;
   margin: 0 auto;
   padding: 24px;
+}
+
+.main-content.has-compare-bar {
+  padding-bottom: 90px;
 }
 
 .fade-enter-active,

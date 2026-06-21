@@ -3,12 +3,14 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useProductsStore } from '@/stores/products'
 import { useCartStore } from '@/stores/cart'
+import { useCompareStore } from '@/stores/compare'
 import { ElMessage } from 'element-plus'
 
 const router = useRouter()
 const route = useRoute()
 const productsStore = useProductsStore()
 const cartStore = useCartStore()
+const compareStore = useCompareStore()
 
 const categoryTabs = [
   { label: '全部', value: '' },
@@ -109,6 +111,15 @@ async function handleAddCart(productId: number | string) {
     ElMessage.success('已加入购物车')
   } catch {
     //
+  }
+}
+
+function handleAddCompare(product: { id: number | string; name: string; price: number; images: string | string[]; stock: number; brand: string; categorySlug?: string; categoryName?: string; params?: string | Record<string, string> }) {
+  const result = compareStore.addItem(product as any)
+  if (result.ok) {
+    ElMessage.success('已加入对比栏')
+  } else {
+    ElMessage.warning(result.msg || '无法加入对比')
   }
 }
 
@@ -269,7 +280,19 @@ onMounted(async () => {
               >
                 加入购物车
               </button>
-              <a class="detail-link" @click.prevent="goDetail(product.id)">查看详情</a>
+              <button
+                class="add-compare-btn"
+                :class="{ active: compareStore.isInCompare(product.id) }"
+                @click="handleAddCompare(product)"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="18" y1="20" x2="18" y2="10" />
+                  <line x1="12" y1="20" x2="12" y2="4" />
+                  <line x1="6" y1="20" x2="6" y2="14" />
+                </svg>
+                {{ compareStore.isInCompare(product.id) ? '已加入' : '对比' }}
+              </button>
+              <a class="detail-link" @click.prevent="goDetail(product.id)">详情</a>
             </div>
           </div>
         </div>
@@ -529,8 +552,39 @@ onMounted(async () => {
 .card-actions {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   margin-top: 4px;
+}
+
+.add-compare-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 5px 10px;
+  border: 1px solid var(--cc-border);
+  background: transparent;
+  color: var(--cc-text-dim);
+  border-radius: 4px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.add-compare-btn svg {
+  width: 13px;
+  height: 13px;
+}
+
+.add-compare-btn:hover {
+  border-color: var(--cc-cyan-dim);
+  color: var(--cc-cyan);
+}
+
+.add-compare-btn.active {
+  border-color: var(--cc-cyan);
+  color: var(--cc-cyan);
+  background: rgba(125, 253, 254, 0.1);
 }
 
 .add-cart-btn {

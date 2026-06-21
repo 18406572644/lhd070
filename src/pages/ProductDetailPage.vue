@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useProductsStore, formatProduct } from '@/stores/products'
 import type { Product } from '@/stores/products'
 import { useCartStore } from '@/stores/cart'
+import { useCompareStore } from '@/stores/compare'
 import { get } from '@/utils/api'
 import { ElMessage } from 'element-plus'
 
@@ -11,6 +12,7 @@ const route = useRoute()
 const router = useRouter()
 const productsStore = useProductsStore()
 const cartStore = useCartStore()
+const compareStore = useCompareStore()
 
 const product = computed(() => productsStore.currentProduct)
 const quantity = ref(1)
@@ -53,6 +55,16 @@ async function handleAddCart() {
 
 function goBuilder() {
   router.push('/builder')
+}
+
+function handleAddCompare() {
+  if (!product.value) return
+  const result = compareStore.addItem(product.value)
+  if (result.ok) {
+    ElMessage.success('已加入对比栏')
+  } else {
+    ElMessage.warning(result.msg || '无法加入对比')
+  }
 }
 
 function goProduct(id: number | string) {
@@ -140,6 +152,18 @@ onMounted(async () => {
               加入购物车
             </button>
             <button class="cyber-btn" @click="goBuilder">加入组装</button>
+            <button
+              class="detail-compare-btn"
+              :class="{ active: compareStore.isInCompare(product.id) }"
+              @click="handleAddCompare"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="20" x2="18" y2="10" />
+                <line x1="12" y1="20" x2="12" y2="4" />
+                <line x1="6" y1="20" x2="6" y2="14" />
+              </svg>
+              {{ compareStore.isInCompare(product.id) ? '已加入对比' : '加入对比' }}
+            </button>
           </div>
         </div>
       </div>
@@ -286,6 +310,36 @@ onMounted(async () => {
   align-items: center;
   gap: 16px;
   margin-top: 8px;
+}
+
+.detail-compare-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0.5rem 1.25rem;
+  border: 1px solid var(--cc-border);
+  background: transparent;
+  color: var(--cc-text-dim);
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.detail-compare-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.detail-compare-btn:hover {
+  border-color: var(--cc-cyan-dim);
+  color: var(--cc-cyan);
+}
+
+.detail-compare-btn.active {
+  border-color: var(--cc-cyan);
+  color: var(--cc-cyan);
+  background: rgba(125, 253, 254, 0.1);
 }
 
 .related-section {

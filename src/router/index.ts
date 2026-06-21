@@ -11,6 +11,7 @@ import CheckoutPage from '@/pages/CheckoutPage.vue'
 import OrdersPage from '@/pages/OrdersPage.vue'
 import OrderDetailPage from '@/pages/OrderDetailPage.vue'
 import FavoritesPage from '@/pages/FavoritesPage.vue'
+import ComparePage from '@/pages/ComparePage.vue'
 import ProfilePage from '@/pages/ProfilePage.vue'
 import LoginPage from '@/pages/LoginPage.vue'
 import RegisterPage from '@/pages/RegisterPage.vue'
@@ -37,6 +38,7 @@ const routes = [
       { path: 'orders', name: 'orders', component: OrdersPage, meta: { requiresAuth: true } },
       { path: 'orders/:id', name: 'order-detail', component: OrderDetailPage, meta: { requiresAuth: true } },
       { path: 'favorites', name: 'favorites', component: FavoritesPage, meta: { requiresAuth: true } },
+      { path: 'compare', name: 'compare', component: ComparePage },
       { path: 'profile', name: 'profile', component: ProfilePage, meta: { requiresAuth: true } },
       { path: 'login', name: 'login', component: LoginPage },
       { path: 'register', name: 'register', component: RegisterPage },
