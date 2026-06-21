@@ -148,6 +148,30 @@ router.get('/', authMiddleware, (req: Request, res: Response): void => {
         .all(...params, limit, offset) as Record<string, unknown>[]
     }
 
+    const orderIds = orders.map((o) => o.id)
+    let allItems: Record<string, unknown>[] = []
+    if (orderIds.length > 0) {
+      const placeholders = orderIds.map(() => '?').join(',')
+      allItems = db
+        .prepare(
+          `SELECT * FROM order_items WHERE orderId IN (${placeholders}) ORDER BY id ASC`,
+        )
+        .all(...orderIds) as Record<string, unknown>[]
+    }
+
+    const itemsByOrder: Record<string, Record<string, unknown>[]> = {}
+    for (const item of allItems) {
+      const oid = String(item.orderId)
+      if (!itemsByOrder[oid]) itemsByOrder[oid] = []
+      itemsByOrder[oid].push(item)
+    }
+
+    for (const o of orders) {
+      const oid = String(o.id)
+      o.items = itemsByOrder[oid] || []
+      o.itemCount = (itemsByOrder[oid] || []).length
+    }
+
     res.json({
       success: true,
       data: {
@@ -177,7 +201,7 @@ router.get('/:id', authMiddleware, (req: Request, res: Response): void => {
       return
     }
 
-    if (req.user!.role !== 'admin' && (order.userId as number) !== req.user!.id) {
+    if (req.user!.role !== 'admin' && req.user!.role !== 'merchant' && (order.userId as number) !== req.user!.id) {
       res.status(403).json({ success: false, error: '无权查看此订单' })
       return
     }
