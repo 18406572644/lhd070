@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useProductsStore } from '@/stores/products'
 import { useCartStore } from '@/stores/cart'
 import { ElMessage } from 'element-plus'
 
 const router = useRouter()
+const route = useRoute()
 const productsStore = useProductsStore()
 const cartStore = useCartStore()
 
@@ -21,6 +22,7 @@ const activeCategory = ref('')
 const selectedBrands = ref<string[]>([])
 const priceRange = ref([0, 1000])
 const sortValue = ref('newest')
+const searchKeyword = ref('')
 
 const brands = ref<string[]>([])
 
@@ -35,6 +37,8 @@ const totalPages = computed(() =>
   Math.ceil(productsStore.total / productsStore.filters.limit),
 )
 
+const isSearchMode = computed(() => !!searchKeyword.value)
+
 function applyFilters() {
   productsStore.setFilters({
     category: activeCategory.value,
@@ -42,6 +46,7 @@ function applyFilters() {
     minPrice: priceRange.value[0],
     maxPrice: priceRange.value[1],
     sort: sortValue.value,
+    search: searchKeyword.value,
   })
 }
 
@@ -69,8 +74,16 @@ function handleReset() {
   selectedBrands.value = []
   priceRange.value = [0, 1000]
   sortValue.value = 'newest'
+  searchKeyword.value = ''
+  router.replace({ query: {} })
   productsStore.resetFilters()
   fetchBrands()
+}
+
+function clearSearch() {
+  searchKeyword.value = ''
+  router.replace({ query: {} })
+  applyFilters()
 }
 
 function handlePageChange(page: number) {
@@ -103,8 +116,31 @@ function goDetail(id: number | string) {
   router.push(`/products/${id}`)
 }
 
+function initFromQuery() {
+  const querySearch = route.query.search as string
+  if (querySearch) {
+    searchKeyword.value = querySearch
+  }
+}
+
+watch(
+  () => route.query.search,
+  (newSearch) => {
+    const val = (newSearch as string) || ''
+    if (val !== searchKeyword.value) {
+      searchKeyword.value = val
+      applyFilters()
+    }
+  },
+)
+
 onMounted(async () => {
-  await productsStore.fetchProducts()
+  initFromQuery()
+  if (searchKeyword.value) {
+    applyFilters()
+  } else {
+    await productsStore.fetchProducts()
+  }
   await fetchBrands()
 })
 </script>
@@ -112,6 +148,25 @@ onMounted(async () => {
 <template>
   <div class="products-page">
     <aside class="filter-panel">
+      <div v-if="isSearchMode" class="search-info">
+        <div class="search-info-header">
+          <svg class="search-info-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+          <span class="search-info-title">搜索结果</span>
+        </div>
+        <div class="search-info-keyword">"{{ searchKeyword }}"</div>
+        <div class="search-info-count">共 {{ productsStore.total }} 个结果</div>
+        <button class="search-clear-btn" @click="clearSearch">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+          清除搜索
+        </button>
+      </div>
+
       <h3 class="section-title">筛选</h3>
 
       <div class="filter-section">
@@ -253,6 +308,74 @@ onMounted(async () => {
   padding: 1.25rem;
   max-height: calc(100vh - 100px);
   overflow-y: auto;
+}
+
+.search-info {
+  background: rgba(0, 255, 255, 0.06);
+  border: 1px solid rgba(0, 255, 255, 0.2);
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 1rem;
+}
+
+.search-info-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.search-info-icon {
+  width: 16px;
+  height: 16px;
+  color: var(--cc-cyan);
+}
+
+.search-info-title {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--cc-cyan);
+}
+
+.search-info-keyword {
+  font-size: 0.85rem;
+  color: var(--cc-white);
+  margin-bottom: 4px;
+  word-break: break-all;
+}
+
+.search-info-count {
+  font-size: 0.75rem;
+  color: var(--cc-text-dim);
+  margin-bottom: 10px;
+}
+
+.search-clear-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 100%;
+  padding: 6px 10px;
+  background: transparent;
+  border: 1px solid rgba(0, 255, 255, 0.25);
+  color: var(--cc-cyan-dim);
+  font-size: 0.8rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.search-clear-btn:hover {
+  background: rgba(0, 255, 255, 0.1);
+  color: var(--cc-cyan);
+  border-color: var(--cc-cyan);
+}
+
+.search-clear-btn svg {
+  width: 12px;
+  height: 12px;
 }
 
 .filter-section {

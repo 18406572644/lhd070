@@ -6,16 +6,21 @@ const router = Router()
 
 router.get('/', (req: Request, res: Response): void => {
   try {
-    const { category, brand, minPrice, maxPrice, sort, page = '1', limit = '10' } = req.query
+    const { category, brand, minPrice, maxPrice, sort, search, page = '1', limit = '10' } = req.query
 
     let sql = `
-      SELECT p.*, c.name as categoryName
+      SELECT p.*, c.name as categoryName, c.slug as categorySlug
       FROM products p
       LEFT JOIN categories c ON p.categoryId = c.id
       WHERE 1=1
     `
     const params: unknown[] = []
 
+    if (search) {
+      const keyword = `%${String(search)}%`
+      sql += ' AND (p.name LIKE ? OR p.brand LIKE ? OR p.params LIKE ?)'
+      params.push(keyword, keyword, keyword)
+    }
     if (category) {
       sql += ' AND c.slug = ?'
       params.push(category)

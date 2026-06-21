@@ -30,6 +30,7 @@ interface Filters {
   minPrice: number
   maxPrice: number
   sort: string
+  search: string
   page: number
   limit: number
 }
@@ -40,6 +41,7 @@ const defaultFilters: Filters = {
   minPrice: 0,
   maxPrice: 0,
   sort: 'newest',
+  search: '',
   page: 1,
   limit: 12,
 }
@@ -96,6 +98,7 @@ export const useProductsStore = defineStore('products', () => {
     try {
       const params: Record<string, string | number> = {}
       const f = filters.value
+      if (f.search) params.search = f.search
       if (f.category) params.category = f.category
       if (f.brand) params.brand = f.brand
       if (f.minPrice > 0) params.minPrice = f.minPrice
@@ -112,6 +115,19 @@ export const useProductsStore = defineStore('products', () => {
       total.value = data.pagination.total
     } finally {
       loading.value = false
+    }
+  }
+
+  async function searchSuggestions(keyword: string, limit = 8): Promise<Product[]> {
+    if (!keyword.trim()) return []
+    try {
+      const data = await get<{ items: Record<string, unknown>[]; pagination: Pagination }>(
+        '/products',
+        { search: keyword, limit },
+      )
+      return data.items.map(formatProduct)
+    } catch {
+      return []
     }
   }
 
@@ -157,6 +173,7 @@ export const useProductsStore = defineStore('products', () => {
     fetchProducts,
     fetchProduct,
     fetchByCategory,
+    searchSuggestions,
     setFilters,
     resetFilters,
   }

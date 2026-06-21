@@ -1,23 +1,103 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref, watch, onBeforeUnmount } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useCartStore } from '@/stores/cart'
+import { useProductsStore, type Product } from '@/stores/products'
 import { ElMessage } from 'element-plus'
 
 const router = useRouter()
 const route = useRoute()
 const auth = useAuthStore()
 const cart = useCartStore()
+const productsStore = useProductsStore()
 
 const isLoggedIn = computed(() => auth.isLoggedIn)
 const userRole = computed(() => auth.user?.role)
 const cartCount = computed(() => cart.totalCount)
 
+const searchKeyword = ref('')
+const searchSuggestions = ref<Product[]>([])
+const showSuggestions = ref(false)
+const searchLoading = ref(false)
+const searchInputRef = ref<HTMLInputElement | null>(null)
+let searchTimer: ReturnType<typeof setTimeout> | null = null
+
+function clearSearchTimer() {
+  if (searchTimer) {
+    clearTimeout(searchTimer)
+    searchTimer = null
+  }
+}
+
+watch(searchKeyword, (val) => {
+  clearSearchTimer()
+  if (!val.trim()) {
+    searchSuggestions.value = []
+    showSuggestions.value = false
+    return
+  }
+  searchTimer = setTimeout(async () => {
+    searchLoading.value = true
+    try {
+      searchSuggestions.value = await productsStore.searchSuggestions(val.trim(), 8)
+      showSuggestions.value = searchSuggestions.value.length > 0
+    } finally {
+      searchLoading.value = false
+    }
+  }, 300)
+})
+
+function handleSearchFocus() {
+  if (searchKeyword.value.trim() && searchSuggestions.value.length > 0) {
+    showSuggestions.value = true
+  }
+}
+
+function handleSearchBlur() {
+  setTimeout(() => {
+    showSuggestions.value = false
+  }, 200)
+}
+
+function goProductDetail(id: number | string) {
+  showSuggestions.value = false
+  searchKeyword.value = ''
+  router.push(`/products/${id}`)
+}
+
+function goSearchResults() {
+  const keyword = searchKeyword.value.trim()
+  if (!keyword) return
+  showSuggestions.value = false
+  router.push({ path: '/products', query: { search: keyword } })
+}
+
+function handleSearchKeydown(e: KeyboardEvent) {
+  if (e.key === 'Enter') {
+    e.preventDefault()
+    goSearchResults()
+  }
+}
+
+function handleClickOutside(e: MouseEvent) {
+  const target = e.target as Node
+  const searchContainer = document.querySelector('.search-container')
+  if (searchContainer && !searchContainer.contains(target)) {
+    showSuggestions.value = false
+  }
+}
+
 onMounted(() => {
   if (isLoggedIn.value) {
     cart.fetchCart()
   }
+  document.addEventListener('click', handleClickOutside)
+})
+
+onBeforeUnmount(() => {
+  clearSearchTimer()
+  document.removeEventListener('click', handleClickOutside)
 })
 
 const handleLogout = () => {
@@ -73,6 +153,62 @@ const isHomeActive = computed(() => route.path === '/')
           <router-link to="/products" class="nav-link">配件商城</router-link>
           <router-link to="/builder" class="nav-link">客制化组装</router-link>
         </nav>
+
+        <div class="search-container">
+          <div class="search-box">
+            <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <input
+              ref="searchInputRef"
+              v-model="searchKeyword"
+              type="text"
+              class="search-input"
+              placeholder="搜索配件名称、品牌..."
+              @focus="handleSearchFocus"
+              @blur="handleSearchBlur"
+              @keydown="handleSearchKeydown"
+            />
+            <svg v-if="searchLoading" class="search-spinner" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+            </svg>
+            <button
+              v-if="searchKeyword && !searchLoading"
+              class="search-clear"
+              @mousedown.prevent="searchKeyword = ''; searchSuggestions = []; showSuggestions = false"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          </div>
+
+          <transition name="dropdown">
+            <div v-if="showSuggestions" class="search-dropdown">
+              <div
+                v-for="item in searchSuggestions"
+                :key="item.id"
+                class="suggestion-item"
+                @mousedown.prevent="goProductDetail(item.id)"
+              >
+                <div class="suggestion-info">
+                  <span class="suggestion-name">{{ item.name }}</span>
+                  <span class="suggestion-category" v-if="item.categoryName">{{ item.categoryName }}</span>
+                </div>
+                <span class="suggestion-price">¥{{ item.price }}</span>
+              </div>
+              <div class="suggestion-footer" @mousedown.prevent="goSearchResults">
+                <span>查看全部结果</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="5" y1="12" x2="19" y2="12" />
+                  <polyline points="12 5 19 12 12 19" />
+                </svg>
+              </div>
+            </div>
+          </transition>
+        </div>
 
         <div class="nav-right">
           <router-link to="/cart" class="cart-link">
@@ -183,8 +319,185 @@ const isHomeActive = computed(() => route.path === '/')
 .nav-links {
   display: flex;
   gap: 28px;
+  flex-shrink: 0;
+}
+
+.search-container {
   flex: 1;
-  justify-content: center;
+  max-width: 380px;
+  position: relative;
+  margin: 0 auto;
+  z-index: 200;
+}
+
+.search-box {
+  display: flex;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(0, 255, 255, 0.2);
+  border-radius: 20px;
+  padding: 0 12px;
+  height: 36px;
+  transition: all 0.2s;
+}
+
+.search-box:focus-within {
+  border-color: rgba(0, 255, 255, 0.5);
+  box-shadow: 0 0 0 2px rgba(0, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.search-icon {
+  width: 16px;
+  height: 16px;
+  color: #5a6578;
+  flex-shrink: 0;
+}
+
+.search-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #e0e0e0;
+  font-size: 14px;
+  padding: 0 8px;
+  height: 100%;
+}
+
+.search-input::placeholder {
+  color: #5a6578;
+}
+
+.search-spinner {
+  width: 16px;
+  height: 16px;
+  color: #00ffff;
+  flex-shrink: 0;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.search-clear {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  color: #5a6578;
+  transition: color 0.2s;
+}
+
+.search-clear:hover {
+  color: #e0e0e0;
+}
+
+.search-clear svg {
+  width: 14px;
+  height: 14px;
+}
+
+.search-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  background: #0d1321;
+  border: 1px solid rgba(0, 255, 255, 0.2);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.suggestion-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: background 0.15s;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.suggestion-item:last-of-type {
+  border-bottom: none;
+}
+
+.suggestion-item:hover {
+  background: rgba(0, 255, 255, 0.08);
+}
+
+.suggestion-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.suggestion-name {
+  font-size: 14px;
+  color: #e0e0e0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+}
+
+.suggestion-category {
+  flex-shrink: 0;
+  font-size: 11px;
+  padding: 2px 8px;
+  background: rgba(0, 255, 255, 0.12);
+  color: #00ffff;
+  border-radius: 4px;
+  border: 1px solid rgba(0, 255, 255, 0.2);
+}
+
+.suggestion-price {
+  flex-shrink: 0;
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 600;
+  font-size: 15px;
+  color: #00ffff;
+}
+
+.suggestion-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  cursor: pointer;
+  background: rgba(0, 255, 255, 0.04);
+  border-top: 1px solid rgba(0, 255, 255, 0.1);
+  color: #5a6578;
+  font-size: 13px;
+  transition: all 0.15s;
+}
+
+.suggestion-footer:hover {
+  background: rgba(0, 255, 255, 0.08);
+  color: #00ffff;
+}
+
+.suggestion-footer svg {
+  width: 14px;
+  height: 14px;
+}
+
+.dropdown-enter-active,
+.dropdown-leave-active {
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.dropdown-enter-from,
+.dropdown-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
 }
 
 .nav-link {
