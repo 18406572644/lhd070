@@ -17,6 +17,7 @@ import statsRoutes from './routes/stats.js'
 import userRoutes from './routes/users.js'
 import uploadRoutes from './routes/upload.js'
 import categoryRoutes from './routes/categories.js'
+import exportRoutes from './routes/export.js'
 
 // for esm mode
 const __filename = fileURLToPath(import.meta.url)
@@ -43,6 +44,7 @@ app.use('/api/stats', statsRoutes)
 app.use('/api/users', userRoutes)
 app.use('/api/upload', uploadRoutes)
 app.use('/api/categories', categoryRoutes)
+app.use('/api/export', exportRoutes)
 
 app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')))
 

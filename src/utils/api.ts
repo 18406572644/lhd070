@@ -85,4 +85,29 @@ export function del<T>(url: string, config?: { data?: unknown }): Promise<T> {
     })
 }
 
+export function download(url: string, params?: Record<string, unknown>): Promise<void> {
+  return api
+    .get(url, {
+      params,
+      responseType: 'blob',
+    })
+    .then((res) => {
+      const disposition = res.headers['content-disposition'] as string | undefined
+      let filename = 'export.xlsx'
+      if (disposition) {
+        const match = disposition.match(/filename="?([^"]+)"?/)
+        if (match) filename = match[1]
+      }
+      const blob = new Blob([res.data])
+      const link = document.createElement('a')
+      const objectUrl = URL.createObjectURL(blob)
+      link.href = objectUrl
+      link.download = filename
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(objectUrl)
+    })
+}
+
 export default api

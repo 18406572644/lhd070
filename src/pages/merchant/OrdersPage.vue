@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { get, put, post } from '@/utils/api'
+import { get, put, post, download } from '@/utils/api'
+import { Download, Filter } from 'lucide-vue-next'
 
 interface OrderItem {
   id: number | string
@@ -22,9 +23,18 @@ interface Order {
 
 const orders = ref<Order[]>([])
 const loading = ref(false)
+const exportLoading = ref(false)
 const progressDialog = ref(false)
 const progressLoading = ref(false)
 const currentOrderId = ref<number | string | null>(null)
+const filterVisible = ref(false)
+
+const filters = reactive({
+  status: '',
+  startDate: '',
+  endDate: '',
+  format: 'xlsx',
+})
 
 const progressForm = reactive({
   title: '',
@@ -47,6 +57,20 @@ const statusTagType: Record<string, string> = {
   cancelled: 'danger',
 }
 
+const statusOptions = [
+  { value: '', label: '全部状态' },
+  { value: 'pending', label: '待确认' },
+  { value: 'confirmed', label: '已确认' },
+  { value: 'processing', label: '处理中' },
+  { value: 'completed', label: '已完成' },
+  { value: 'cancelled', label: '已取消' },
+]
+
+const formatOptions = [
+  { value: 'xlsx', label: 'Excel (.xlsx)' },
+  { value: 'csv', label: 'CSV (.csv)' },
+]
+
 async function fetchOrders() {
   loading.value = true
   try {
@@ -55,6 +79,29 @@ async function fetchOrders() {
   } finally {
     loading.value = false
   }
+}
+
+async function handleExport() {
+  exportLoading.value = true
+  try {
+    const params: Record<string, unknown> = { format: filters.format }
+    if (filters.status) params.status = filters.status
+    if (filters.startDate) params.startDate = filters.startDate
+    if (filters.endDate) params.endDate = filters.endDate
+    await download('/export/orders', params)
+    ElMessage.success('导出成功')
+  } catch {
+    ElMessage.error('导出失败')
+  } finally {
+    exportLoading.value = false
+  }
+}
+
+function resetFilters() {
+  filters.status = ''
+  filters.startDate = ''
+  filters.endDate = ''
+  filters.format = 'xlsx'
 }
 
 async function confirmOrder(id: number | string) {
@@ -108,7 +155,57 @@ onMounted(fetchOrders)
 
 <template>
   <div class="merchant-orders animate-fade-in">
-    <h2 class="section-title">订单管理</h2>
+    <div class="page-header">
+      <h2 class="section-title">订单管理</h2>
+      <div class="header-actions">
+        <el-button type="primary" plain @click="filterVisible = !filterVisible">
+          <el-icon><Filter /></el-icon>
+          筛选导出
+        </el-button>
+      </div>
+    </div>
+
+    <el-collapse-transition>
+      <div v-show="filterVisible" class="filter-panel cyber-card">
+        <el-form :inline="true" label-position="top">
+          <el-form-item label="订单状态">
+            <el-select v-model="filters.status" placeholder="全部状态" style="width: 140px">
+              <el-option v-for="opt in statusOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="开始日期">
+            <el-date-picker
+              v-model="filters.startDate"
+              type="date"
+              placeholder="选择日期"
+              value-format="YYYY-MM-DD"
+              style="width: 160px"
+            />
+          </el-form-item>
+          <el-form-item label="结束日期">
+            <el-date-picker
+              v-model="filters.endDate"
+              type="date"
+              placeholder="选择日期"
+              value-format="YYYY-MM-DD"
+              style="width: 160px"
+            />
+          </el-form-item>
+          <el-form-item label="导出格式">
+            <el-select v-model="filters.format" style="width: 140px">
+              <el-option v-for="opt in formatOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
+            </el-select>
+          </el-form-item>
+          <el-form-item>
+            <el-button type="primary" :loading="exportLoading" @click="handleExport">
+              <el-icon><Download /></el-icon>
+              导出
+            </el-button>
+            <el-button @click="resetFilters">重置</el-button>
+          </el-form-item>
+        </el-form>
+      </div>
+    </el-collapse-transition>
 
     <el-table v-loading="loading" :data="orders" stripe row-key="id">
       <el-table-column type="expand">
@@ -208,6 +305,23 @@ onMounted(fetchOrders)
 <style scoped>
 .merchant-orders {
   padding: 2rem 1.5rem;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.header-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.filter-panel {
+  margin-bottom: 1rem;
+  padding: 1rem 1.5rem;
 }
 
 .cyan {

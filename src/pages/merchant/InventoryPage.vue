@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { get, put } from '@/utils/api'
+import { get, put, download } from '@/utils/api'
 import { parseParams, parseImages } from '@/stores/products'
+import { Download, Filter } from 'lucide-vue-next'
 
 interface RawProduct {
   id: number | string
@@ -40,13 +41,44 @@ interface AlertItem {
 const products = ref<Product[]>([])
 const alertItems = ref<AlertItem[]>([])
 const loading = ref(false)
+const exportLoading = ref(false)
 const restockDialog = ref(false)
 const restockLoading = ref(false)
 const currentProduct = ref<Product | null>(null)
+const filterVisible = ref(false)
+
+const filters = reactive({
+  lowStock: false,
+  format: 'xlsx',
+})
+
+const formatOptions = [
+  { value: 'xlsx', label: 'Excel (.xlsx)' },
+  { value: 'csv', label: 'CSV (.csv)' },
+]
 
 const restockForm = reactive({
   quantity: 1,
 })
+
+async function handleExport() {
+  exportLoading.value = true
+  try {
+    const params: Record<string, unknown> = { format: filters.format }
+    if (filters.lowStock) params.lowStock = 'true'
+    await download('/export/inventory', params)
+    ElMessage.success('导出成功')
+  } catch {
+    ElMessage.error('导出失败')
+  } finally {
+    exportLoading.value = false
+  }
+}
+
+function resetFilters() {
+  filters.lowStock = false
+  filters.format = 'xlsx'
+}
 
 function stockStatus(stock: number, threshold: number): string {
   if (stock === 0) return 'critical'
@@ -117,7 +149,37 @@ onMounted(fetchData)
 
 <template>
   <div class="merchant-inventory animate-fade-in">
-    <h2 class="section-title">库存管理</h2>
+    <div class="page-header">
+      <h2 class="section-title">库存管理</h2>
+      <div class="header-actions">
+        <el-button type="primary" plain @click="filterVisible = !filterVisible">
+          <el-icon><Filter /></el-icon>
+          筛选导出
+        </el-button>
+      </div>
+    </div>
+
+    <el-collapse-transition>
+      <div v-show="filterVisible" class="filter-panel cyber-card">
+        <el-form :inline="true" label-position="top">
+          <el-form-item label="仅导出低库存">
+            <el-switch v-model="filters.lowStock" />
+          </el-form-item>
+          <el-form-item label="导出格式">
+            <el-select v-model="filters.format" style="width: 140px">
+              <el-option v-for="opt in formatOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
+            </el-select>
+          </el-form-item>
+          <el-form-item>
+            <el-button type="primary" :loading="exportLoading" @click="handleExport">
+              <el-icon><Download /></el-icon>
+              导出
+            </el-button>
+            <el-button @click="resetFilters">重置</el-button>
+          </el-form-item>
+        </el-form>
+      </div>
+    </el-collapse-transition>
 
     <el-table v-loading="loading" :data="products" stripe>
       <el-table-column label="商品名称" prop="name" min-width="200" />
@@ -177,6 +239,23 @@ onMounted(fetchData)
 <style scoped>
 .merchant-inventory {
   padding: 2rem 1.5rem;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.header-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.filter-panel {
+  margin-bottom: 1rem;
+  padding: 1rem 1.5rem;
 }
 
 .status-normal {

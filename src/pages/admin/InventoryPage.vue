@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { get } from '@/utils/api'
+import { ref, reactive, onMounted } from 'vue'
+import { ElMessage } from 'element-plus'
+import { get, download } from '@/utils/api'
 import { parseImages, parseParams } from '@/stores/products'
+import { Download, Filter } from 'lucide-vue-next'
 
 interface RawProduct {
   id: number | string
@@ -41,6 +43,37 @@ interface AlertItem {
 const products = ref<Product[]>([])
 const alertItems = ref<AlertItem[]>([])
 const loading = ref(false)
+const exportLoading = ref(false)
+const filterVisible = ref(false)
+
+const filters = reactive({
+  lowStock: false,
+  format: 'xlsx',
+})
+
+const formatOptions = [
+  { value: 'xlsx', label: 'Excel (.xlsx)' },
+  { value: 'csv', label: 'CSV (.csv)' },
+]
+
+async function handleExport() {
+  exportLoading.value = true
+  try {
+    const params: Record<string, unknown> = { format: filters.format }
+    if (filters.lowStock) params.lowStock = 'true'
+    await download('/export/inventory', params)
+    ElMessage.success('导出成功')
+  } catch {
+    ElMessage.error('导出失败')
+  } finally {
+    exportLoading.value = false
+  }
+}
+
+function resetFilters() {
+  filters.lowStock = false
+  filters.format = 'xlsx'
+}
 
 function stockStatus(stock: number, threshold: number): string {
   if (stock === 0) return 'critical'
@@ -93,7 +126,37 @@ onMounted(fetchData)
 
 <template>
   <div class="admin-inventory animate-fade-in">
-    <h2 class="section-title">全局库存监控</h2>
+    <div class="page-header">
+      <h2 class="section-title">全局库存监控</h2>
+      <div class="header-actions">
+        <el-button type="primary" plain @click="filterVisible = !filterVisible">
+          <el-icon><Filter /></el-icon>
+          筛选导出
+        </el-button>
+      </div>
+    </div>
+
+    <el-collapse-transition>
+      <div v-show="filterVisible" class="filter-panel cyber-card">
+        <el-form :inline="true" label-position="top">
+          <el-form-item label="仅导出低库存">
+            <el-switch v-model="filters.lowStock" />
+          </el-form-item>
+          <el-form-item label="导出格式">
+            <el-select v-model="filters.format" style="width: 140px">
+              <el-option v-for="opt in formatOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
+            </el-select>
+          </el-form-item>
+          <el-form-item>
+            <el-button type="primary" :loading="exportLoading" @click="handleExport">
+              <el-icon><Download /></el-icon>
+              导出
+            </el-button>
+            <el-button @click="resetFilters">重置</el-button>
+          </el-form-item>
+        </el-form>
+      </div>
+    </el-collapse-transition>
 
     <div v-if="alertItems.length > 0" class="alert-section cyber-card">
       <h3 class="sub-title">
@@ -155,6 +218,23 @@ onMounted(fetchData)
 <style scoped>
 .admin-inventory {
   padding: 2rem 1.5rem;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.header-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.filter-panel {
+  margin-bottom: 1rem;
+  padding: 1rem 1.5rem;
 }
 
 .sub-title {
