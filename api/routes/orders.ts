@@ -210,9 +210,18 @@ router.get('/:id', authMiddleware, (req: Request, res: Response): void => {
       .prepare('SELECT * FROM order_items WHERE orderId = ?')
       .all(req.params.id) as Record<string, unknown>[]
 
-    const progress = db
+    const progressRows = db
       .prepare('SELECT * FROM order_progress WHERE orderId = ? ORDER BY createdAt ASC')
       .all(req.params.id) as Record<string, unknown>[]
+
+    const progress = progressRows.map((row) => ({
+      id: row.id,
+      orderId: row.orderId,
+      title: row.step,
+      description: row.note || '',
+      status: row.status,
+      createdAt: row.createdAt,
+    }))
 
     res.json({ success: true, data: { order, items, progress } })
   } catch (error) {
@@ -276,7 +285,15 @@ router.post(
         .prepare('INSERT INTO order_progress (orderId, step, status, note) VALUES (?, ?, ?, ?)')
         .run(req.params.id, progressStep, status || 'pending', progressNote)
 
-      res.status(201).json({ success: true, data: { id: result.lastInsertRowid } })
+      const progress = {
+        id: result.lastInsertRowid,
+        orderId: req.params.id,
+        title: progressStep,
+        description: progressNote,
+        status: status || 'pending',
+      }
+
+      res.status(201).json({ success: true, data: { progress } })
     } catch (error) {
       res.status(500).json({ success: false, error: '添加进度失败' })
     }
