@@ -37,9 +37,7 @@ async function handleFileChange(event: Event) {
       const formData = new FormData()
       formData.append('file', file)
       try {
-        const res = await api.post('/upload', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        })
+        const res = await api.post('/upload', formData)
         if (res.data?.success && res.data?.data?.url) {
           images.value = [...images.value, res.data.data.url]
         } else {
