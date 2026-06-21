@@ -6,6 +6,7 @@ import { useProductsStore, formatProduct } from '@/stores/products'
 import type { Product } from '@/stores/products'
 import { useCartStore } from '@/stores/cart'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import KeyboardPreview from '@/components/KeyboardPreview.vue'
 
 const router = useRouter()
 const cartStore = useCartStore()
@@ -224,6 +225,12 @@ onMounted(async () => {
 
       <aside class="preview-panel">
         <h3 class="section-title">方案预览</h3>
+        <KeyboardPreview
+          :selected-case="selectedCase"
+          :selected-keycap="selectedKeycap"
+          :selected-switch="selectedSwitch"
+          :selected-cable="selectedCable"
+        />
         <div class="preview-items">
           <div class="preview-item">
             <span class="preview-label">轴体</span>
@@ -416,7 +423,7 @@ onMounted(async () => {
 }
 
 .preview-panel {
-  width: 280px;
+  width: 380px;
   flex-shrink: 0;
   position: sticky;
   top: 84px;
@@ -510,12 +517,14 @@ onMounted(async () => {
   color: var(--cc-text-dim);
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1100px) {
   .builder-body {
     flex-direction: column;
   }
   .preview-panel {
     width: 100%;
+    max-width: 500px;
+    margin: 0 auto;
     position: static;
   }
   .product-grid {
@@ -529,6 +538,9 @@ onMounted(async () => {
   }
   .step-label {
     display: none;
+  }
+  .preview-panel {
+    width: 100%;
   }
 }
 </style>
