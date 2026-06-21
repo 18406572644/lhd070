@@ -108,6 +108,16 @@ db.exec(`
     createdAt TEXT DEFAULT (datetime('now'))
   );
 
+  CREATE TABLE IF NOT EXISTS order_messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    orderId INTEGER NOT NULL REFERENCES orders(id),
+    senderId INTEGER NOT NULL REFERENCES users(id),
+    type TEXT NOT NULL DEFAULT 'text' CHECK(type IN ('text','image')),
+    content TEXT NOT NULL,
+    readBy TEXT DEFAULT '[]',
+    createdAt TEXT DEFAULT (datetime('now'))
+  );
+
   CREATE INDEX IF NOT EXISTS idx_products_category ON products(categoryId);
   CREATE INDEX IF NOT EXISTS idx_products_merchant ON products(merchantId);
   CREATE INDEX IF NOT EXISTS idx_cart_items_user ON cart_items(userId);
@@ -117,6 +127,8 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
   CREATE INDEX IF NOT EXISTS idx_order_items_order ON order_items(orderId);
   CREATE INDEX IF NOT EXISTS idx_order_progress_order ON order_progress(orderId);
+  CREATE INDEX IF NOT EXISTS idx_order_messages_order ON order_messages(orderId);
+  CREATE INDEX IF NOT EXISTS idx_order_messages_sender ON order_messages(senderId);
 `)
 
 const categoryCount = db.prepare('SELECT COUNT(*) AS count FROM categories').get() as { count: number }

@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 import { get } from '@/utils/api'
 
 import { parseImages } from '@/stores/products'
+import OrderChatPanel from '@/components/OrderChatPanel.vue'
 
 interface OrderItem {
   id: number | string
@@ -200,6 +201,8 @@ onMounted(fetchOrder)
         />
       </div>
     </div>
+
+    <OrderChatPanel :order-id="order.id" />
   </div>
 </template>
 

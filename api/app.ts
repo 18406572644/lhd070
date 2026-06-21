@@ -18,6 +18,7 @@ import userRoutes from './routes/users.js'
 import uploadRoutes from './routes/upload.js'
 import categoryRoutes from './routes/categories.js'
 import exportRoutes from './routes/export.js'
+import chatRoutes from './routes/chat.js'
 
 // for esm mode
 const __filename = fileURLToPath(import.meta.url)
@@ -45,6 +46,7 @@ app.use('/api/users', userRoutes)
 app.use('/api/upload', uploadRoutes)
 app.use('/api/categories', categoryRoutes)
 app.use('/api/export', exportRoutes)
+app.use('/api', chatRoutes)
 
 app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')))
 

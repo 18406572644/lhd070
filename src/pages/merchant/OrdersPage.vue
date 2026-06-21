@@ -1,8 +1,11 @@
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { get, put, post, download } from '@/utils/api'
-import { Download, Filter } from 'lucide-vue-next'
+import { useRouter } from 'vue-router'
+import { Download, Filter, MessageSquare } from 'lucide-vue-next'
+
+const router = useRouter()
 
 interface OrderItem {
   id: number | string
@@ -28,6 +31,9 @@ const progressDialog = ref(false)
 const progressLoading = ref(false)
 const currentOrderId = ref<number | string | null>(null)
 const filterVisible = ref(false)
+const unreadMessages = ref<Record<string, number>>({})
+const totalUnread = ref(0)
+let notificationWs: WebSocket | null = null
 
 const filters = reactive({
   status: '',
@@ -150,7 +156,66 @@ async function submitProgress() {
   }
 }
 
-onMounted(fetchOrders)
+function goToDetail(id: number | string) {
+  router.push(`/orders/${id}`)
+}
+
+async function fetchUnread() {
+  try {
+    const data = await get<{ unread: Record<number, number>; total: number }>('/messages/unread')
+    const mapped: Record<string, number> = {}
+    for (const [k, v] of Object.entries(data.unread)) {
+      mapped[String(k)] = v
+    }
+    unreadMessages.value = mapped
+    totalUnread.value = data.total
+  } catch {
+  }
+}
+
+function connectNotificationWS() {
+  const token = localStorage.getItem('cybercraft_token') || ''
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+  const host = window.location.hostname
+  const port = 6070
+  const url = `${protocol}//${host}:${port}/ws?token=${encodeURIComponent(token)}`
+
+  try {
+    notificationWs = new WebSocket(url)
+    notificationWs.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data)
+        if (data.type === 'new_message_notification') {
+          const oid = String(data.orderId)
+          unreadMessages.value[oid] = (unreadMessages.value[oid] || 0) + 1
+          totalUnread.value++
+        }
+      } catch {
+      }
+    }
+    notificationWs.onclose = () => {
+      setTimeout(() => {
+        if (!notificationWs || notificationWs.readyState === WebSocket.CLOSED) {
+          connectNotificationWS()
+        }
+      }, 5000)
+    }
+  } catch {
+  }
+}
+
+onMounted(async () => {
+  await fetchOrders()
+  await fetchUnread()
+  connectNotificationWS()
+})
+
+onUnmounted(() => {
+  if (notificationWs) {
+    notificationWs.close()
+    notificationWs = null
+  }
+})
 </script>
 
 <template>
@@ -245,8 +310,25 @@ onMounted(fetchOrders)
         </template>
       </el-table-column>
       <el-table-column label="时间" prop="createdAt" width="170" />
-      <el-table-column label="操作" width="260" align="center">
+      <el-table-column label="操作" width="320" align="center">
         <template #default="{ row }">
+          <el-button
+            size="small"
+            type="info"
+            plain
+            @click="goToDetail(row.id)"
+          >
+            <el-badge
+              v-if="unreadMessages[row.id]"
+              :value="unreadMessages[row.id]"
+              :max="99"
+              class="chat-badge"
+            >
+              <MessageSquare :size="14" />
+            </el-badge>
+            <span v-else><MessageSquare :size="14" /></span>
+            详情/沟通
+          </el-button>
           <el-button
             v-if="row.status === 'pending'"
             size="small"
