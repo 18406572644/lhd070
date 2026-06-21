@@ -37,3 +37,4 @@ data/
 api/*.db
 api/*.db-shm
 api/*.db-wal
+/start.bat

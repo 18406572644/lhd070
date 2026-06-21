@@ -31,7 +31,7 @@ export default defineConfig({
     port: 2070,
     proxy: {
       '/api': {
-        target: 'http://backend:6070',
+        target: 'http://localhost:6070',
         changeOrigin: true,
         secure: false,
         configure: (proxy, _options) => {
@@ -45,6 +45,11 @@ export default defineConfig({
             console.log('Received Response from the Target:', proxyRes.statusCode, req.url);
           });
         },
+      },
+      '/uploads': {
+        target: 'http://localhost:6070',
+        changeOrigin: true,
+        secure: false,
       }
     }
   }

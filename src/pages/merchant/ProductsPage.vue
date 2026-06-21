@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { get, post, put, del } from '@/utils/api'
 import { parseImages, parseParams } from '@/stores/products'
+import ImageUploader from '@/components/ImageUploader.vue'
 
 interface Category {
   id: number | string
@@ -36,6 +37,44 @@ interface Product {
   images: string[]
 }
 
+interface ParamTemplate {
+  label: string
+  fields: string[]
+}
+
+const PARAM_TEMPLATES: Record<string, ParamTemplate> = {
+  switch: {
+    label: '轴体预设',
+    fields: ['类型', '压力', '行程', '触发键程', '触点', '弹簧', '材质', '寿命'],
+  },
+  keycap: {
+    label: '键帽预设',
+    fields: ['材质', '高度', '工艺', '印字', '布局', '配色'],
+  },
+  case: {
+    label: '外壳预设',
+    fields: ['材质', '结构', '重量', '配列', '接口', '颜色'],
+  },
+  cable: {
+    label: '线材预设',
+    fields: ['类型', '长度', '接口', '材质', '颜色', '屏蔽'],
+  },
+  default: {
+    label: '通用参数',
+    fields: ['型号', '产地', '保修', '备注'],
+  },
+}
+
+function getTemplateForCategory(categoryId: number | string): ParamTemplate {
+  const id = String(categoryId)
+  if (PARAM_TEMPLATES[id]) return PARAM_TEMPLATES[id]
+  if (id === '1') return PARAM_TEMPLATES.switch
+  if (id === '2') return PARAM_TEMPLATES.keycap
+  if (id === '3') return PARAM_TEMPLATES.case
+  if (id === '4') return PARAM_TEMPLATES.cable
+  return PARAM_TEMPLATES.default
+}
+
 const products = ref<Product[]>([])
 const categories = ref<Category[]>([])
 const loading = ref(false)
@@ -54,6 +93,15 @@ const form = reactive({
   images: [] as string[],
 })
 
+const currentTemplate = ref<ParamTemplate>(PARAM_TEMPLATES.default)
+
+watch(
+  () => form.categoryId,
+  (catId) => {
+    currentTemplate.value = getTemplateForCategory(catId)
+  },
+)
+
 function resetForm() {
   form.name = ''
   form.categoryId = ''
@@ -63,6 +111,7 @@ function resetForm() {
   form.params = []
   form.images = []
   editingId.value = null
+  currentTemplate.value = PARAM_TEMPLATES.default
 }
 
 function openAdd() {
@@ -82,11 +131,23 @@ function openEdit(product: Product) {
   form.stock = product.stock
   form.params = Object.entries(product.params || {}).map(([key, value]) => ({ key, value }))
   form.images = [...(product.images || [])]
+  currentTemplate.value = getTemplateForCategory(product.categoryId)
   dialogVisible.value = true
 }
 
-function addParam() {
-  form.params.push({ key: '', value: '' })
+function addParam(key = '', value = '') {
+  form.params.push({ key, value })
+}
+
+function applyTemplate() {
+  const existingKeys = new Set(form.params.map((p) => p.key).filter((k) => k))
+  const newFields = currentTemplate.value.fields.filter((f) => !existingKeys.has(f))
+  newFields.forEach((f) => form.params.push({ key: f, value: '' }))
+  if (newFields.length === 0) {
+    ElMessage.info('模板参数已全部添加')
+  } else {
+    ElMessage.success(`已添加 ${newFields.length} 个参数`)
+  }
 }
 
 function removeParam(index: number) {
@@ -190,6 +251,16 @@ onMounted(() => {
     </div>
 
     <el-table v-loading="loading" :data="products" stripe>
+      <el-table-column label="商品图片" width="80" align="center">
+        <template #default="{ row }">
+          <img
+            v-if="row.images && row.images.length > 0"
+            :src="row.images[0]"
+            class="thumb-img"
+          />
+          <span v-else class="no-image">无图</span>
+        </template>
+      </el-table-column>
       <el-table-column label="商品名称" prop="name" min-width="180" />
       <el-table-column label="分类" prop="category" width="120" />
       <el-table-column label="价格" width="110" align="right">
@@ -206,7 +277,7 @@ onMounted(() => {
       </el-table-column>
     </el-table>
 
-    <el-dialog v-model="dialogVisible" :title="dialogTitle" width="560px" class="cyber-dialog">
+    <el-dialog v-model="dialogVisible" :title="dialogTitle" width="640px" class="cyber-dialog">
       <el-form label-position="top">
         <el-form-item label="商品名称" required>
           <el-input v-model="form.name" placeholder="输入商品名称" />
@@ -233,21 +304,40 @@ onMounted(() => {
           </el-form-item>
         </div>
         <el-form-item label="参数">
+          <div class="params-toolbar">
+            <el-button size="small" type="primary" plain @click="applyTemplate">
+              应用「{{ currentTemplate.label }}」
+            </el-button>
+            <el-button size="small" @click="addParam()">+ 自定义参数</el-button>
+          </div>
           <div class="params-list">
             <div v-for="(p, idx) in form.params" :key="idx" class="param-row">
-              <el-input v-model="p.key" placeholder="参数名" class="param-input" />
+              <el-select
+                v-if="currentTemplate.fields.includes(p.key) || p.key === ''"
+                v-model="p.key"
+                placeholder="选择或输入参数名"
+                class="param-input"
+                filterable
+                allow-create
+              >
+                <el-option
+                  v-for="f in currentTemplate.fields"
+                  :key="f"
+                  :label="f"
+                  :value="f"
+                />
+              </el-select>
+              <el-input v-else v-model="p.key" placeholder="参数名" class="param-input" />
               <el-input v-model="p.value" placeholder="参数值" class="param-input" />
               <el-button size="small" type="danger" circle @click="removeParam(idx)">×</el-button>
             </div>
-            <el-button size="small" @click="addParam">+ 添加参数</el-button>
+            <div v-if="form.params.length === 0" class="params-empty">
+              暂无参数，点击上方按钮添加
+            </div>
           </div>
         </el-form-item>
         <el-form-item label="图片">
-          <el-input
-            v-model="form.images[0]"
-            placeholder="输入图片URL"
-            @change="(val: string) => { if (val && form.images.length === 0) form.images.push(val) }"
-          />
+          <ImageUploader v-model="form.images" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -279,6 +369,19 @@ onMounted(() => {
   font-weight: 600;
 }
 
+.thumb-img {
+  width: 48px;
+  height: 48px;
+  object-fit: cover;
+  border-radius: 4px;
+  border: 1px solid var(--cc-border);
+}
+
+.no-image {
+  font-size: 12px;
+  color: var(--cc-text-dim);
+}
+
 .form-row {
   display: flex;
   gap: 1rem;
@@ -288,11 +391,29 @@ onMounted(() => {
   flex: 1;
 }
 
+.params-toolbar {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
 .params-list {
   width: 100%;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+}
+
+.params-empty {
+  padding: 1rem;
+  text-align: center;
+  color: var(--cc-text-dim);
+  font-size: 13px;
+  background-color: var(--cc-card);
+  border: 1px dashed var(--cc-border);
+  border-radius: 4px;
 }
 
 .param-row {
