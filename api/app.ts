@@ -19,6 +19,7 @@ import uploadRoutes from './routes/upload.js'
 import categoryRoutes from './routes/categories.js'
 import exportRoutes from './routes/export.js'
 import chatRoutes from './routes/chat.js'
+import favoriteRoutes from './routes/favorites.js'
 
 // for esm mode
 const __filename = fileURLToPath(import.meta.url)
@@ -41,6 +42,7 @@ app.use('/api/products', productRoutes)
 app.use('/api/cart', cartRoutes)
 app.use('/api/orders', orderRoutes)
 app.use('/api/schemes', schemeRoutes)
+app.use('/api/favorites', favoriteRoutes)
 app.use('/api/stats', statsRoutes)
 app.use('/api/users', userRoutes)
 app.use('/api/upload', uploadRoutes)

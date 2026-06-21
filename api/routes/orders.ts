@@ -253,10 +253,11 @@ router.post(
   roleMiddleware('merchant', 'admin'),
   (req: Request, res: Response): void => {
     try {
-      const { step, status, note } = req.body
+      const { step, title, status, note, description } = req.body
 
-      if (!step) {
-        res.status(400).json({ success: false, error: '工序步骤不能为空' })
+      const progressStep = step || title || ''
+      if (!progressStep) {
+        res.status(400).json({ success: false, error: '进度标题不能为空' })
         return
       }
 
@@ -269,9 +270,11 @@ router.post(
         return
       }
 
+      const progressNote = note || description || ''
+
       const result = db
         .prepare('INSERT INTO order_progress (orderId, step, status, note) VALUES (?, ?, ?, ?)')
-        .run(req.params.id, step, status || 'pending', note || '')
+        .run(req.params.id, progressStep, status || 'pending', progressNote)
 
       res.status(201).json({ success: true, data: { id: result.lastInsertRowid } })
     } catch (error) {
